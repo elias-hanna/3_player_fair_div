@@ -2,6 +2,8 @@ import random as rd
 import itertools
 import sys
 import numpy as np
+
+
  
 
 

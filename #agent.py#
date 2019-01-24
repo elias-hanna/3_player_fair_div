@@ -3,9 +3,11 @@ import itertools
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-plt.plot([1, 2, 3, 4])
-plt.ylabel('some numbers')
-plt.show()
+
+def draw_graph(l):
+        plt.plot([1, 2, 3, 4])
+        plt.ylabel('some numbers')
+        plt.show()
 
 
 
