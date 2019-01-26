@@ -4,9 +4,6 @@ import sys
 import numpy as np
 
 
- 
-
-
 from agent import Agent
 from agent import Allocation
 
@@ -58,6 +55,7 @@ def OS(agents, non_allocated_objects, l, from_alloc):
    # print l
    # print "alloc"
    # print non_allocated_objects
+
     if(len(non_allocated_objects) > 0):
         
         H0 = agents[0].H(non_allocated_objects,l)
@@ -68,7 +66,6 @@ def OS(agents, non_allocated_objects, l, from_alloc):
             for obj_a1 in H1:
                 for obj_a2 in H2:
                     Hs.append([obj_a0, obj_a1, obj_a2])    
-                     
         i=0
         while( i < len(Hs)):
             h = Hs[i]
@@ -101,6 +98,3 @@ def OS(agents, non_allocated_objects, l, from_alloc):
         #print "r"
         #from_alloc.show()
         return [from_alloc]
-                    
-
-
