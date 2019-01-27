@@ -3,7 +3,9 @@ import itertools
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 from collections import Counter
+from IPython.display import clear_output
 
 plt.plot([1, 2, 3, 4])
 plt.ylabel('some numbers')
@@ -78,7 +80,7 @@ class Allocation:
                     if ao!=a:
                         for o in range(self.nb_objects//self.nb_agents):
                             for o2 in range(self.nb_objects//self.nb_agents):
-                                if self.agents[a].rank(self.al[a][o]) > self.agents[ao].rank(self.al[a][o]) and self.agents[a].rank(self.al[ao][o2]) < self.agents[ao].rank(self.al[ao][o2]):
+                                if self.agents[a].rank(self.al[a][o]) > self.agents[ao].rank(self.al[a][o]) and self.agents[a].rank(self.al[ao][o2]) >= self.agents[ao].rank(self.al[ao][o2]):
                                     #print "Agents ( ", a, " , ", ao, "):  [", self.al[a][o], " , ", self.al[ao][o2], "]"
                                     return False
             return True
@@ -116,8 +118,8 @@ class Agent:
         ranks = self.prefs[:]
         self.ranked_obj = ranks[:]
         for i in range(len(self.ranked_obj)):
-            self.ranked_obj[i] = np.argmin([x for x in ranks if x is not None]) 
-            ranks[ self.ranked_obj[i]] = nb_obj + 1
+            self.ranked_obj[i] = np.argmax(ranks) 
+            ranks[ self.ranked_obj[i]] = 0
 
     def get_prefs(self):
         return self.prefs
@@ -131,19 +133,25 @@ class Agent:
     def rank(self,obj):
         return self.prefs[obj]
 
-    def top(self,V):
+    def top_from_list(self, V):
         top = V[0]
-        for obj in V:
-            if self.prefs[obj] < self.prefs[top]:
-                top = obj
-        return top
-
-    def last(self,V):
-        last = V[0]
         for obj in V:
             if self.prefs[obj] > self.prefs[top]:
                 top = obj
+        return top
+
+    def top(self):
+        return self.ranked_obj[0] # Return item ranked first
+
+    def last_from_list(self, V):
+        last = V[0]
+        for obj in V:
+            if self.prefs[obj] < self.prefs[last]:
+                last = obj
         return last
+
+    def last(self):
+        return self.ranked_obj[-1] # Return item ranked last
 
     def sb(self,V):
             W = V[:]
@@ -154,9 +162,9 @@ class Agent:
             h = []
             Hlist = []
             if l >=  len(self.ranked_obj):
-                l= len(self.ranked_obj)-1
+                l = len(self.ranked_obj)-1
             for obj in V:
-                for i in range(l):
+                for i in range(l+1):
                     if obj == self.ranked_obj[i]:
                         Hlist.append(obj)
             return Hlist
@@ -168,10 +176,18 @@ class AllAgents:
         std_prefs = [i for i in range (1, nb_obj + 1)]
         all_prefs = list(itertools.permutations(std_prefs))
         self.all_agents_sets = []
+        total = 0
         for i in range(0, len(all_prefs)):              # Agent 1
+            start = time.time()
             for j in range(0, len(all_prefs)):          # Agent 2
                 for k in range(0, len(all_prefs)):      # Agent 3
                     self.all_agents_sets.append([Agent(nb_obj, list(all_prefs[i])), Agent(nb_obj, list(all_prefs[j])), Agent(nb_obj, list(all_prefs[k]))])
+            end = time.time()
+            total += (end - start)
+            remaining = (total/(i+1))*(len(all_prefs) - i)
+            clear_output(wait=True)
+            print("Processing: " + str(i*(len(all_prefs)**2)/(len(all_prefs)**3) * 100) + '%')
+            print("Approximate remaining time: " + str(remaining//60) + " minutes and " + str(remaining%60) + " seconds")
 
     def show_all_preferences(self):
         print("Number of sets: " + str(len(self.all_agents_sets)))
@@ -197,29 +213,76 @@ class AllAllocations:
 
         # Space-time tradeoff, should we use list or dict ? 
         self.all_allocs = {}
+        total = 0
         for i in range(0, len(all_objs)):
+            flag = True
+            start = time.time()
             add_cpt = 0
             one_alloc = list(all_objs[i])
             new_alloc = [one_alloc[x:x+len(one_alloc)//3] for x in range(0, len(one_alloc), len(one_alloc)//3)]
-            for k in range(0, len(self.all_allocs)):
-                if add_cpt != 2:
-                    add_cpt = 0
-                    for j in range(0, len(new_alloc)):
-                        if add_cpt == 2:
-                            break
-                        if(Counter(self.all_allocs[k].get_alloc()[j]) == Counter(new_alloc[j])):
-                            add_cpt += 1
-                else:
-                    break
-            if add_cpt != 2: # We only add an allocation if its not already in the database(i.e all 3 allocations for each agent are different)
-                self.all_allocs[len(self.all_allocs)] = Allocation([Agent(nb_obj),Agent(nb_obj), Agent(nb_obj)], nb_obj, new_alloc)
+
+            permuted_new_alloc = [[x,y,z] for x in list(itertools.permutations(new_alloc[0])) for y in list(itertools.permutations(new_alloc[1])) for z in list(itertools.permutations(new_alloc[2]))]
+            permuted_new_alloc = [ [list(i[j]) for j in range(0,len(i))] for i in permuted_new_alloc]
+
+            # First way: search in dict a fixed amount
+            for k in range(0, len(permuted_new_alloc)):
+
+                if str(permuted_new_alloc[k]) in self.all_allocs:
+                    flag = False
+
+            # Second way: compare all -> less efficient
+
+            # for k in range(0, len(self.all_allocs)):
+            #     if add_cpt != 2:
+            #         add_cpt = 0
+            #         for j in range(0, len(new_alloc)):
+            #             if add_cpt == 2:
+            #                 break
+            #             if(Counter(self.all_allocs[k].get_alloc()[j]) == Counter(new_alloc[j])):
+            #                 add_cpt += 1
+            #     else:
+            #         break
+
+            if flag: # We only add an allocation if its not already in the database(i.e all 3 allocations for each agent are different)
+                al = Allocation([Agent(nb_obj),Agent(nb_obj), Agent(nb_obj)], nb_obj, new_alloc)
+                self.all_allocs[str(new_alloc)] = [al , al.pareto_optimal()]
+            # if add_cpt != 2: # We only add an allocation if its not already in the database(i.e all 3 allocations for each agent are different)
+            #     self.all_allocs[len(self.all_allocs)] = Allocation([Agent(nb_obj),Agent(nb_obj), Agent(nb_obj)], nb_obj, new_alloc)
+
+            end = time.time()
+            total += (end - start)
+            remaining = (total/(i+1))*(len(all_objs) - i)
+            # Show percentage of progression in the notebook
+            clear_output(wait=True)
+            print("Processing: " + str(i/len(all_objs) * 100) + '%')
+            print("Approximate remaining time: " + str(remaining//60) + " minutes and " + str(remaining%60) + " seconds")
+
+        # Final print
+        clear_output(wait=True)
+        print("100% processed !")
+        print("Total time elapsed: " + str(total//60) + " minutes and " + str(total%60) + " seconds")
+
 
     def show_all_allocs(self):
         print("Number of allocs: " + str(len(self.all_allocs)))
-        for i in range(0, len(self.all_allocs)):
+        j = 0
+        for i in self.all_allocs:
             print("-------------------")
-            print(str(i + 1) + "th alloc")
-            self.all_allocs[i].simple_show()
+            print(str(j + 1) + "th alloc")
+            self.all_allocs[i][0].simple_show()
+            print("Is pareto optimal: ", self.all_allocs[i][1])
+            j += 1
+        # print("Number of allocs: " + str(len(self.all_allocs)))
+        # for i in range(0, len(self.all_allocs)):
+        #     print("-------------------")
+        #     print(str(i + 1) + "th alloc")
+        #     self.all_allocs[i].simple_show()
+
+    def get_allocs(self):
+        return self.all_allocs
+
+    def is_pareto_optimal(self, alloc):
+        return self.all_allocs[str(alloc)][1]
 
 def main():
     nb_obj = 9

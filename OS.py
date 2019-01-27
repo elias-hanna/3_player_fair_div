@@ -18,7 +18,7 @@ def removeObj(Hs,os):
 def run_OS(agents, nb_objects):
     non_allocated_objects = [i  for i in range(nb_objects)]
     a = Allocation(agents,nb_objects)
-    return OS(agents, non_allocated_objects, 1, a)
+    return OS(agents, non_allocated_objects, 0, a)
     # non_allocated_objects = [i  for i in range(nb_objects)]
     # l=1
     # while(len(non_allocated_objects) > 0):
@@ -66,11 +66,11 @@ def OS(agents, non_allocated_objects, l, from_alloc):
             for obj_a1 in H1:
                 for obj_a2 in H2:
                     Hs.append([obj_a0, obj_a1, obj_a2])    
-        i=0
+        i = 0
         while( i < len(Hs)):
             h = Hs[i]
             if(h[0]!=h[1] and h[1]!=h[2] and h[0]!=h[2] ):
-                i+=1
+                i += 1
             else:
                 Hs.remove(h)
         
