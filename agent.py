@@ -80,7 +80,23 @@ class Allocation:
                     if ao!=a:
                         for o in range(self.nb_objects//self.nb_agents):
                             for o2 in range(self.nb_objects//self.nb_agents):
-                                if self.agents[a].rank(self.al[a][o]) > self.agents[ao].rank(self.al[a][o]) and self.agents[a].rank(self.al[ao][o2]) >= self.agents[ao].rank(self.al[ao][o2]):
+                                if self.agents[a].rank(self.al[a][o]) < self.agents[ao].rank(self.al[a][o]) and self.agents[a].rank(self.al[ao][o2]) <= self.agents[ao].rank(self.al[ao][o2]):
+                                    #print "Agents ( ", a, " , ", ao, "):  [", self.al[a][o], " , ", self.al[ao][o2], "]"
+                                    return False
+
+            return True
+
+        def borda_pareto_optimal(self):
+            for a in range(self.nb_agents):
+                for ao in range(self.nb_agents):
+                    if ao!=a:
+                        for o in range(self.nb_objects//self.nb_agents):
+                            for o2 in range(self.nb_objects//self.nb_agents):
+                                # Create allocations where objects are swapped
+                                new_alloc_a = [i for i in self.al[a] if i != self.al[a][o]] + [self.al[ao][o2]]
+                                new_alloc_ao = [i for i in self.al[ao] if i != self.al[ao][o2]] + [self.al[a][o]]
+                                # print(self.al[a], new_alloc_a, self.al[ao], new_alloc_ao)
+                                if self.agents[a].borda_score(self.al[a]) >= self.agents[a].borda_score(new_alloc_a) and self.agents[ao].borda_score(new_alloc_ao) <= self.agents[ao].borda_score(self.al[ao]):
                                     #print "Agents ( ", a, " , ", ao, "):  [", self.al[a][o], " , ", self.al[ao][o2], "]"
                                     return False
             return True
@@ -120,6 +136,13 @@ class Agent:
         for i in range(len(self.ranked_obj)):
             self.ranked_obj[i] = np.argmax(ranks) 
             ranks[ self.ranked_obj[i]] = 0
+
+    def borda_score(self, V):
+        sum = 0
+        N = len(V)
+        for i in range(0, N):
+            sum += N + 1 - self.rank(V[i])
+        return sum
 
     def get_prefs(self):
         return self.prefs
@@ -189,6 +212,11 @@ class AllAgents:
             print("Processing: " + str(i*(len(all_prefs)**2)/(len(all_prefs)**3) * 100) + '%')
             print("Approximate remaining time: " + str(remaining//60) + " minutes and " + str(remaining%60) + " seconds")
 
+        # Final print
+        clear_output(wait=True)
+        print("100% processed !")
+        print("Total time elapsed: " + str(total//60) + " minutes and " + str(total%60) + " seconds")
+
     def show_all_preferences(self):
         print("Number of sets: " + str(len(self.all_agents_sets)))
         for i in range(0, len(self.all_agents_sets)):
@@ -207,12 +235,17 @@ class AllAgents:
 #-------------------------------------------
 class AllAllocations:
 
-    def __init__(self, nb_obj):
+    def __init__(self, nb_obj, agents=None):
         std_objs = [i for i in range (0, nb_obj)]
         all_objs = list(itertools.permutations(std_objs))
 
         # Space-time tradeoff, should we use list or dict ? 
         self.all_allocs = {}
+        if agents:
+            self.agents = agents
+        else:
+            agents = [Agent(nb_obj),Agent(nb_obj), Agent(nb_obj)]
+
         total = 0
         for i in range(0, len(all_objs)):
             flag = True
@@ -230,24 +263,9 @@ class AllAllocations:
                 if str(permuted_new_alloc[k]) in self.all_allocs:
                     flag = False
 
-            # Second way: compare all -> less efficient
-
-            # for k in range(0, len(self.all_allocs)):
-            #     if add_cpt != 2:
-            #         add_cpt = 0
-            #         for j in range(0, len(new_alloc)):
-            #             if add_cpt == 2:
-            #                 break
-            #             if(Counter(self.all_allocs[k].get_alloc()[j]) == Counter(new_alloc[j])):
-            #                 add_cpt += 1
-            #     else:
-            #         break
-
             if flag: # We only add an allocation if its not already in the database(i.e all 3 allocations for each agent are different)
-                al = Allocation([Agent(nb_obj),Agent(nb_obj), Agent(nb_obj)], nb_obj, new_alloc)
-                self.all_allocs[str(new_alloc)] = [al , al.pareto_optimal()]
-            # if add_cpt != 2: # We only add an allocation if its not already in the database(i.e all 3 allocations for each agent are different)
-            #     self.all_allocs[len(self.all_allocs)] = Allocation([Agent(nb_obj),Agent(nb_obj), Agent(nb_obj)], nb_obj, new_alloc)
+                al = Allocation(self.agents, nb_obj, new_alloc)
+                self.all_allocs[str(new_alloc)] = [al , al.borda_pareto_optimal()]
 
             end = time.time()
             total += (end - start)
@@ -272,17 +290,16 @@ class AllAllocations:
             self.all_allocs[i][0].simple_show()
             print("Is pareto optimal: ", self.all_allocs[i][1])
             j += 1
-        # print("Number of allocs: " + str(len(self.all_allocs)))
-        # for i in range(0, len(self.all_allocs)):
-        #     print("-------------------")
-        #     print(str(i + 1) + "th alloc")
-        #     self.all_allocs[i].simple_show()
 
     def get_allocs(self):
         return self.all_allocs
 
     def is_pareto_optimal(self, alloc):
         return self.all_allocs[str(alloc)][1]
+
+    def max_borda_score(self):
+        for i in self.all_allocs:
+            self.all_allocs[i][0].get_alloc
 
 def main():
     nb_obj = 9
