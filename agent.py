@@ -266,7 +266,7 @@ class AllAllocations:
             new_alloc = [one_alloc[x:x+len(one_alloc)//3] for x in range(0, len(one_alloc), len(one_alloc)//3)]
 
             permuted_new_alloc = [[x,y,z] for x in list(itertools.permutations(new_alloc[0])) for y in list(itertools.permutations(new_alloc[1])) for z in list(itertools.permutations(new_alloc[2]))]
-            permuted_new_alloc = [ [list(i[j]) for j in range(0,len(i))] for i in permuted_new_alloc]
+            permuted_new_alloc = [ [list(o[j]) for j in range(0,len(o))] for o in permuted_new_alloc]
 
             # First way: search in dict a fixed amount
             for k in range(0, len(permuted_new_alloc)):
