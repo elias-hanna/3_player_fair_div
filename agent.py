@@ -83,7 +83,6 @@ class Allocation:
                                 if self.agents[a].rank(self.al[a][o]) < self.agents[ao].rank(self.al[a][o]) and self.agents[a].rank(self.al[ao][o2]) <= self.agents[ao].rank(self.al[ao][o2]):
                                     #print "Agents ( ", a, " , ", ao, "):  [", self.al[a][o], " , ", self.al[ao][o2], "]"
                                     return False
-
             return True
 
         def borda_pareto_optimal(self):
@@ -96,9 +95,21 @@ class Allocation:
                                 new_alloc_a = [i for i in self.al[a] if i != self.al[a][o]] + [self.al[ao][o2]]
                                 new_alloc_ao = [i for i in self.al[ao] if i != self.al[ao][o2]] + [self.al[a][o]]
                                 # print(self.al[a], new_alloc_a, self.al[ao], new_alloc_ao)
-                                if self.agents[a].borda_score(self.al[a]) >= self.agents[a].borda_score(new_alloc_a) and self.agents[ao].borda_score(new_alloc_ao) <= self.agents[ao].borda_score(self.al[ao]):
+                                if self.agents[a].borda_score(new_alloc_a) >= self.agents[a].borda_score(self.al[a]) and self.agents[ao].borda_score(new_alloc_ao) > self.agents[ao].borda_score(self.al[ao]):
                                     #print "Agents ( ", a, " , ", ao, "):  [", self.al[a][o], " , ", self.al[ao][o2], "]"
                                     return False
+            return True
+
+        def borda_envy_free(self):
+            a_1_bs = self.agents[0].borda_score(self.al[0])
+            a_2_bs = self.agents[1].borda_score(self.al[1])
+            a_3_bs = self.agents[2].borda_score(self.al[2])
+            if( a_1_bs < a_2_bs or a_1_bs < a_3_bs):
+                return False
+            if( a_2_bs < a_1_bs or a_2_bs < a_3_bs):
+                return False
+            if( a_3_bs < a_1_bs or a_3_bs < a_2_bs):
+                return False
             return True
 
 #-------------------------------------------
@@ -134,15 +145,15 @@ class Agent:
         ranks = self.prefs[:]
         self.ranked_obj = ranks[:]
         for i in range(len(self.ranked_obj)):
-            self.ranked_obj[i] = np.argmax(ranks) 
-            ranks[ self.ranked_obj[i]] = 0
+            self.ranked_obj[i] = np.argmin(ranks) 
+            ranks[ self.ranked_obj[i]] = len(self.ranked_obj) + 1
 
     def borda_score(self, V):
-        sum = 0
-        N = len(V)
-        for i in range(0, N):
-            sum += N + 1 - self.rank(V[i])
-        return sum
+        borda_score = 0
+        N = len(self.prefs)
+        for i in range(0, len(V)):
+            borda_score += N + 1 - self.rank(V[i])
+        return borda_score
 
     def get_prefs(self):
         return self.prefs
@@ -159,7 +170,7 @@ class Agent:
     def top_from_list(self, V):
         top = V[0]
         for obj in V:
-            if self.prefs[obj] > self.prefs[top]:
+            if self.prefs[obj] < self.prefs[top]:
                 top = obj
         return top
 
@@ -169,7 +180,7 @@ class Agent:
     def last_from_list(self, V):
         last = V[0]
         for obj in V:
-            if self.prefs[obj] < self.prefs[last]:
+            if self.prefs[obj] > self.prefs[last]:
                 last = obj
         return last
 
@@ -265,7 +276,7 @@ class AllAllocations:
 
             if flag: # We only add an allocation if its not already in the database(i.e all 3 allocations for each agent are different)
                 al = Allocation(self.agents, nb_obj, new_alloc)
-                self.all_allocs[str(new_alloc)] = [al , al.borda_pareto_optimal()]
+                self.all_allocs[str(new_alloc)] = [al , al.borda_pareto_optimal(), al.borda_envy_free()]
 
             end = time.time()
             total += (end - start)
@@ -288,7 +299,8 @@ class AllAllocations:
             print("-------------------")
             print(str(j + 1) + "th alloc")
             self.all_allocs[i][0].simple_show()
-            print("Is pareto optimal: ", self.all_allocs[i][1])
+            print("Is Borda pareto optimal: ", self.all_allocs[i][1])
+            print("Is Borda envy free: ", self.all_allocs[i][2])
             j += 1
 
     def get_allocs(self):
@@ -298,8 +310,14 @@ class AllAllocations:
         return self.all_allocs[str(alloc)][1]
 
     def max_borda_score(self):
+        self.max_score = 0
         for i in self.all_allocs:
-            self.all_allocs[i][0].get_alloc
+            current_score = 0
+            for j in range(len(self.agents)):
+                current_score += self.agents[j].borda_score(self.all_allocs[i][0].get_alloc()[j])
+            if self.max_score < current_score:
+                self.max_score = current_score
+        return self.max_score
 
 def main():
     nb_obj = 9
